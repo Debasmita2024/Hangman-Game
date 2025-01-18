@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hangman Game Interface</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container, .game-screen {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            width: 600px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            display: none;
+        }
+
+        .container.active, .game-screen.active {
+            display: block;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+        }
+
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .option {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            background-color: #f7f7f7;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .option:hover {
+            background-color: #e0e0e0;
+        }
+
+        .icon {
+            width: 40px;
+            height: 40px;
+            background-color: #4CAF50; /* Default color */
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-right: 10px;
+        }
+
+        .option:nth-child(2) .icon {
+            background-color: #9c27b0; /* Purple for timed */
+        }
+
+        .option:nth-child(3) .icon {
+            background-color: #ff9800; /* Yellow for untimed */
+        }
+
+        .icon img {
+            width: 20px;
+            height: 20px;
+        }
+
+        .text-container {
+            flex-grow: 1;
+            text-align: left;
+        }
+
+        .main-text {
+            font-weight: bold;
+        }
+
+        .sub-text {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        /* Game screen styles */
+        .game-screen {
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            padding: 20px;
+            width: 600px;
+            text-align: left;
+        }
+
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .hint-button {
+            background-color: #ffa500;
+            color: white;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .word-display {
+            margin: 20px 0;
+            font-size: 24px;
+            letter-spacing: 5px;
+            text-align: center;
+        }
+
+        .letter-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 50px);
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .letter {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #3498db;
+            color: white;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        /* Hangman Styles */
+        .hangman {
+            font-family: monospace;
+            font-size: 16px;
+            white-space: pre;
+            text-align: center;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container active" id="mainMenu">
+        <h1>Welcome to Hangman!</h1>
+        <div class="options">
+            <div class="option" onclick="startGame('timed')">
+                <div class="icon">
+                    <img src="https://img.icons8.com/ios-filled/50/ffffff/hourglass.png" alt="Timed Icon">
+                </div>
+                <div class="text-container">
+                    <div class="main-text">Single Player - Timed</div>
+                    <div class="sub-text">Play by yourself, time limit 2 minutes</div>
+                </div>
+            </div>
+            <div class="option" onclick="startGame('untimed')">
+                <div class="icon">
+                    <img src="https://img.icons8.com/ios-filled/50/ffffff/user.png" alt="Untimed Icon">
+                </div>
+                <div class="text-container">
+                    <div class="main-text">Single Player - Untimed</div>
+                    <div class="sub-text">Play by yourself, no time limit</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="game-screen" id="gameScreen">
+        <div class="game-header">
+            <button class="hint-button">Hint (Alt+L)</button>
+            <span id="timer">02:00</span>
+            <div>
+                <div id="points">0 points</div>
+                <div id="streak">streak: 0</div>
+            </div>
+        </div>
+        <div class="word-display" id="wordDisplay">_ _ _ _ _</div>
+        <div class="letter-grid" id="letterGrid">
+            <!-- Alphabet buttons will be inserted here by JavaScript -->
+        </div>
+        <div class="hangman" id="hangmanDisplay"></div> <!-- Hangman display -->
+    </div>
+
+    <script>
+        const words = ["python", "hangman", "challenge", "programming", "developer", "keyboard"];
+        let selectedWord, wordCompletion, guessedLetters, tries, points, timerInterval;
+        let timerCount = 120; // 2 minutes
+
+        const hangmanStages = [
+            `
+               ------
+               |    |
+               |    O
+               |   \\|/
+               |    |
+               |   / \\
+               -
+            `,
+            `
+               ------
+               |    |
+               |    O
+               |   \\|/
+               |    |
+               |   /
+               -
+            `,
+            `
+               ------
+               |    |
+               |    O
+               |   \\|/
+               |    |
+               |   
+               -
+            `,
+            `
+               ------
+               |    |
+               |    O
+               |   \\|
+               |    |
+               |   
+               -
+            `,
+            `
+               ------
+               |    |
+               |    O
+               |    
+               |    |
+               |   
+               -
+            `,
+            `
+               ------
+               |    |
+               |    O
+               |    
+               |    
+               |   
+               -
+            `,
+            `
+               ------
+               |    |
+               |    
+               |    
+               |    
+               |   
+               -
+            `
+        ];
+
+        function startGame(mode) {
+            document.getElementById('mainMenu').classList.remove('active');
+            document.getElementById('gameScreen').classList.add('active');
+            setupGame(mode);
+        }
+
+        function setupGame(mode) {
+            selectedWord = words[Math.floor(Math.random() * words.length)];
+            wordCompletion = "_ ".repeat(selectedWord.length).trim();
+            guessedLetters = [];
+            tries = 6;
+            points = 0;
+            document.getElementById('wordDisplay').textContent = wordCompletion;
+            document.getElementById('points').textContent = `${points} points`;
+            document.getElementById('hangmanDisplay').textContent = hangmanStages[tries];
+            generateLetterButtons();
+
+            if (mode === 'timed') {
+                timerCount = 120; // Reset the timer
+                startTimer();
+            }
+        }
+
+        function startTimer() {
+            const timerElement = document.getElementById('timer');
+            timerInterval = setInterval(() => {
+                if (timerCount > 0) {
+                    timerCount--;
+                    const minutes = String(Math.floor(timerCount / 60)).padStart(2, '0');
+                    const seconds = String(timerCount % 60).padStart(2, '0');
+                    timerElement.textContent = `${minutes}:${seconds}`;
+                } else {
+                    clearInterval(timerInterval);
+                    alert(`Time's up! The word was ${selectedWord}. Try again!`);
+                    resetGame();
+                }
+            }, 1000);
+        }
+
+        function generateLetterButtons() {
+            const letterGrid = document.getElementById('letterGrid');
+            letterGrid.innerHTML = '';
+            for (let i = 65; i <= 90; i++) {
+                const letter = String.fromCharCode(i);
+                const button = document.createElement('div');
+                button.textContent = letter;
+                button.className = 'letter';
+                button.onclick = () => handleGuess(letter.toLowerCase());
+                letterGrid.appendChild(button);
+            }
+        }
+
+        function handleGuess(letter) {
+            if (guessedLetters.includes(letter)) {
+                alert(`You already guessed the letter "${letter}"`);
+                return;
+            }
+            guessedLetters.push(letter);
+
+            if (!selectedWord.includes(letter)) {
+                tries--;
+                document.getElementById('hangmanDisplay').textContent = hangmanStages[tries];
+
+                if (tries === 0) {
+                    alert(`Game Over! The word was "${selectedWord}".`);
+                    resetGame();
+                    return;
+                }
+            } else {
+                points += 10; // Increment points for correct guess
+            }
+
+            updateWordDisplay();
+            document.getElementById('points').textContent = `${points} points`;
+        }
+
+        function updateWordDisplay() {
+            wordCompletion = selectedWord.split('').map(letter => guessedLetters.includes(letter) ? letter : "_").join(' ');
+            document.getElementById('wordDisplay').textContent = wordCompletion;
+
+            if (!wordCompletion.includes("_")) {
+                alert(`Congratulations! You guessed the word "${selectedWord}"!`);
+                resetGame();
+            }
+        }
+
+        function resetGame() {
+            clearInterval(timerInterval);
+            document.getElementById('mainMenu').classList.add('active');
+            document.getElementById('gameScreen').classList.remove('active');
+        }
+    </script>
+</body>
+</html>
